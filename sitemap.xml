@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://chill-sam.github.io/</loc>
+    </url>
+    <url>
+        <loc>https://chill-sam.github.io/page/1/</loc>
+    </url>
+    <url>
+        <loc>https://chill-sam.github.io/posts/</loc>
+    </url>
+    <url>
+        <loc>https://chill-sam.github.io/posts/chillssh-tcp-server/</loc>
+        <lastmod>2026-04-16</lastmod>
+    </url>
+    <url>
+        <loc>https://chill-sam.github.io/tags/</loc>
+    </url>
+    <url>
+        <loc>https://chill-sam.github.io/tags/c/</loc>
+    </url>
+    <url>
+        <loc>https://chill-sam.github.io/tags/chillssh/</loc>
+    </url>
+    <url>
+        <loc>https://chill-sam.github.io/tags/networking/</loc>
+    </url>
+</urlset>

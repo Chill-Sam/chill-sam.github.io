@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="https://chill-sam.github.io/style.css">
+    <link rel="stylesheet" href="https://chill-sam.github.io/color/red.css">
+
+        <link rel="stylesheet" href="https://chill-sam.github.io/color/background_dark.css">
+    
+    <link rel="stylesheet" href="https://chill-sam.github.io/font-hack-subset.css">
+
+    <meta name="description" content="">
+
+    <meta property="og:description" content="">
+    <meta property="og:title" content="">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://chill-sam.github.io/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:title" content="">
+    <meta property="twitter:domain" content="chill-sam.github.io">
+    <meta property="twitter:url" content="https://chill-sam.github.io/">
+
+    </head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="https://chill-sam.github.io" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            Terminimal theme
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+        
+    </header>
+    
+
+    <div class="content">
+        
+        <div class="posts">
+                <div class="post on-list">
+                    
+    <h1 class="post-title"><a href="https://chill-sam.github.io/posts/chillssh-tcp-server/">Building a TCP Server in C</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2026-04-16
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="https://chill-sam.github.io/tags/c/">#c</a>&nbsp;
+                <a class="post-tag" href="https://chill-sam.github.io/tags/chillssh/">#chillssh</a>&nbsp;
+                <a class="post-tag" href="https://chill-sam.github.io/tags/networking/">#networking</a></span>
+    
+
+
+                    <div class="post-content">
+            <h1 id="building-a-tcp-server-in-c">Building a TCP Server in C</h1>
+<h2 id="why">Why?</h2>
+<p>I wanted to really understand how servers work at the system call level. Not "use a framework", not "call a library", I mean actually reaching down into the kernel and building something that listens for connections, reads data, and writes it back.</p>
+<p>The end goal of <code>chillssh</code> is a from-scratch SSH server that accepts connections and serves an application, built entirely by hand, no libssh, no OpenSSL. But before any SSH, before any crypto, before any protocol parsing, you need a working TCP server. This is how I got there.</p>
+<hr />
+<h2 id="step-1-the-simplest-possible-server">Step 1: The Simplest Possible Server</h2>
+<p>The first commit was about getting something that compiles, binds a port, and actually talks to a client. Nothing fancy.</p>
+<p>The core flow is pretty mechanical once you've seen it once:</p>
+<pre class="giallo" style="color: #CDD6F4; background-color: #1E1E2E;"><code data-lang="c"><span class="giallo-l"><span style="color: #CBA6F7;">int</span><span> fd </span><span style="color: #94E2D5;">=</span><span style="color: #89B4FA;font-style: italic;"> socket</span><span style="color: #9399B2;">(</span><span>AF_INET</span><span style="color: #9399B2;">,</span><span> SOCK_STREAM</span><span style="color: #9399B2;">,</span><span> IPPROTO_TCP</span><span style="color: #9399B2;">);</span></span>
+<span class="giallo-l"><span style="color: #89B4FA;font-style: italic;">setsockopt</span><span style="color: #9399B2;">(</span><span>fd</span><span style="color: #9399B2;">,</span><span> SOL_SOCKET</span><span style="color: #9399B2;">,</span><span> SO_REUSEADDR</span><span style="color: #9399B2;">,</span><span style="color: #94E2D5;"> &amp;</span><span style="color: #EBA0AC;font-style: italic;">opt</span><span style="color: #9399B2;">,</span><span style="color: #94E2D5;"> sizeof</span><span style="color: #9399B2;">(</span><span>opt</span><span style="color: #9399B2;">));</span></span>
+<span class="giallo-l"><span style="color: #89B4FA;font-style: italic;">bind</span><span style="color: #9399B2;">(</span><span>fd</span><span style="color: #9399B2;">, (</span><span style="color: #CBA6F7;">struct</span><span> sockaddr </span><span style="color: #94E2D5;">*</span><span style="color: #9399B2;">)</span><span style="color: #94E2D5;">&amp;</span><span style="color: #EBA0AC;font-style: italic;">addr</span><span style="color: #9399B2;">,</span><span style="color: #94E2D5;"> sizeof</span><span style="color: #9399B2;">(</span><span>addr</span><span style="color: #9399B2;">));</span></span>
+<span class="giallo-l"><span style="color: #89B4FA;font-style: italic;">listen</span><span style="color: #9399B2;">(</span><span>fd</span><span style="color: #9399B2;">,</span><span> SOMAXCONN</span><span style="color: #9399B2;">);</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">while</span><span style="color: #9399B2;"> (</span><span style="color: #F38BA8;">true</span><span style="color: #9399B2;">) {</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">    int</span><span> client </span><span style="color: #94E2D5;">=</span><span style="color: #89B4FA;font-style: italic;"> accept</span><span style="color: #9399B2;">(</span><span>fd</span><span style="color: #9399B2;">,</span><span> ...</span><span style="color: #9399B2;">);</span></span>
+<span class="giallo-l"><span style="color: #89B4FA;font-style: italic;">    write</span><span style="color: #9399B2;">(</span><span>client</span><span style="color: #9399B2;">,</span><span style="color: #A6E3A1;"> &quot;Hello World!</span><span style="color: #F5C2E7;">\n</span><span style="color: #A6E3A1;">&quot;</span><span style="color: #9399B2;">,</span><span style="color: #FAB387;"> 13</span><span style="color: #9399B2;">);</span></span>
+<span class="giallo-l"><span style="color: #89B4FA;font-style: italic;">    close</span><span style="color: #9399B2;">(</span><span>client</span><span style="color: #9399B2;">);</span></span>
+<span class="giallo-l"><span style="color: #9399B2;">}</span></span></code></pre>
+<p><code>SO_REUSEADDR</code> is immediately important, without it, restarting the server while TIME_WAIT sockets are lingering will refuse to bind. Learned that one fast.</p>
+<p>The accept loop blocks the process entirely on each connection. One client at a time, and we close immediately after writing. It's basically useless for anything real, but it was a useful foundation to build on.</p>
+<p>I also set up a small logging system from the start, a header-only macro based logger with <code>LOG_ERROR</code>, <code>LOG_WARNING</code>, and <code>LOG_INFO</code> levels. Printing to stderr with <code>__FILE__</code> and <code>__LINE__</code> context. Nothing fancy but it saved me a lot of printf-debugging.</p>
+<p>One thing I want to be deliberate about throughout this project: writing robust, safe, modern C. The Makefile compiles with <code>-Wall -Wextra -Wpedantic -std=c23</code>. C23 is the latest standard and the strict warning flags mean the compiler catches a lot of sloppiness before it becomes a bug.</p>
+<hr />
+<h2 id="step-2-multiple-clients-with-epoll">Step 2: Multiple Clients with epoll</h2>
+<p>The blocking accept loop obviously can't handle multiple clients. The naive fix is threads, but I wanted to go the event-driven route with <code>epoll</code>, Linux's high-performance I/O event notification interface.</p>
+<p>The idea behind epoll is: instead of blocking on a single fd, you register a set of fds with an epoll instance and call <code>epoll_wait</code>. The kernel tells you which fds are ready, and you handle them one by one.</p>
+<p>To make this work, every fd needs to be in non-blocking mode:</p>
+<pre class="giallo" style="color: #CDD6F4; background-color: #1E1E2E;"><code data-lang="c"><span class="giallo-l"><span style="color: #CBA6F7;">int</span><span> flags </span><span style="color: #94E2D5;">=</span><span style="color: #89B4FA;font-style: italic;"> fcntl</span><span style="color: #9399B2;">(</span><span>fd</span><span style="color: #9399B2;">,</span><span> F_GETFL</span><span style="color: #9399B2;">);</span></span>
+<span class="giallo-l"><span style="color: #89B4FA;font-style: italic;">fcntl</span><span style="color: #9399B2;">(</span><span>fd</span><span style="color: #9399B2;">,</span><span> F_SETFL</span><span style="color: #9399B2;">,</span><span> flags </span><span style="color: #94E2D5;">|</span><span> O_NONBLOCK</span><span style="color: #9399B2;">);</span></span></code></pre>
+<p>Then you create an epoll instance and register your server socket:</p>
+<pre class="giallo" style="color: #CDD6F4; background-color: #1E1E2E;"><code data-lang="c"><span class="giallo-l"><span style="color: #CBA6F7;">int</span><span> epoll_fd </span><span style="color: #94E2D5;">=</span><span style="color: #89B4FA;font-style: italic;"> epoll_create1</span><span style="color: #9399B2;">(</span><span style="color: #FAB387;">0</span><span style="color: #9399B2;">);</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">struct</span><span> epoll_event ev </span><span style="color: #94E2D5;">=</span><span style="color: #9399B2;"> {</span><span> .events </span><span style="color: #94E2D5;">=</span><span> EPOLLIN</span><span style="color: #9399B2;">,</span><span> .data</span><span style="color: #9399B2;">.</span><span>fd</span><span style="color: #94E2D5;"> =</span><span> socket_fd </span><span style="color: #9399B2;">};</span></span>
+<span class="giallo-l"><span style="color: #89B4FA;font-style: italic;">epoll_ctl</span><span style="color: #9399B2;">(</span><span>epoll_fd</span><span style="color: #9399B2;">,</span><span> EPOLL_CTL_ADD</span><span style="color: #9399B2;">,</span><span> socket_fd</span><span style="color: #9399B2;">,</span><span style="color: #94E2D5;"> &amp;</span><span style="color: #EBA0AC;font-style: italic;">ev</span><span style="color: #9399B2;">);</span></span></code></pre>
+<p>The event loop then becomes:</p>
+<pre class="giallo" style="color: #CDD6F4; background-color: #1E1E2E;"><code data-lang="c"><span class="giallo-l"><span style="color: #CBA6F7;">while</span><span style="color: #9399B2;"> (</span><span style="color: #F38BA8;">true</span><span style="color: #9399B2;">) {</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">    int</span><span> n </span><span style="color: #94E2D5;">=</span><span style="color: #89B4FA;font-style: italic;"> epoll_wait</span><span style="color: #9399B2;">(</span><span>epoll_fd</span><span style="color: #9399B2;">,</span><span> events</span><span style="color: #9399B2;">,</span><span> MAX_EVENTS</span><span style="color: #9399B2;">,</span><span style="color: #94E2D5;"> -</span><span style="color: #FAB387;">1</span><span style="color: #9399B2;">);</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">    for</span><span style="color: #9399B2;"> (</span><span style="color: #CBA6F7;">int</span><span> i </span><span style="color: #94E2D5;">=</span><span style="color: #FAB387;"> 0</span><span style="color: #9399B2;">;</span><span> i </span><span style="color: #94E2D5;">&lt;</span><span> n</span><span style="color: #9399B2;">;</span><span> i</span><span style="color: #94E2D5;">++</span><span style="color: #9399B2;">) {</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">        int</span><span> fd </span><span style="color: #94E2D5;">=</span><span> events</span><span style="color: #9399B2;">[</span><span>i</span><span style="color: #9399B2;">].</span><span>data</span><span style="color: #9399B2;">.</span><span>fd</span><span style="color: #9399B2;">;</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">        if</span><span style="color: #9399B2;"> (</span><span>fd </span><span style="color: #94E2D5;">==</span><span> server_fd</span><span style="color: #9399B2;">) {</span></span>
+<span class="giallo-l"><span style="color: #9399B2;font-style: italic;">            // new connection, accept and register with epoll</span></span>
+<span class="giallo-l"><span style="color: #9399B2;">        }</span><span style="color: #CBA6F7;"> else</span><span style="color: #9399B2;"> {</span></span>
+<span class="giallo-l"><span style="color: #9399B2;font-style: italic;">            // data from existing client, read and echo back</span></span>
+<span class="giallo-l"><span style="color: #9399B2;">        }</span></span>
+<span class="giallo-l"><span style="color: #9399B2;">    }</span></span>
+<span class="giallo-l"><span style="color: #9399B2;">}</span></span></code></pre>
+<p>The distinguishing trick here is comparing <code>fd</code> against the server fd to know whether an event is a new connection or incoming data. It works, but it's a bit fragile. You're relying on fd integer comparison to dispatch logic.</p>
+<p>For echoing, handling <code>bytes == 0</code> is important, that's the client disconnecting gracefully. And <code>EAGAIN</code> on a non-blocking read just means there's no data right now, not an error.</p>
+<hr />
+<h2 id="step-3-modularization-and-a-tagged-union-for-epoll-dispatch">Step 3: Modularization and a Tagged Union for epoll Dispatch</h2>
+<p>The second epoll implementation worked, but it was 150+ lines of tangled logic in <code>main.c</code>. I wanted to break it into something that could actually grow. So I pulled it apart into:</p>
+<ul>
+<li><code>server.c</code> / <code>server.h</code> : owns the listening socket, the epoll instance, and the client list</li>
+<li><code>conn.c</code> / <code>conn.h</code> : represents a single client connection</li>
+<li><code>epoll_ctx.h</code> : a tagged union that replaces the fragile fd comparison</li>
+</ul>
+<p>The tagged union is the most interesting design decision here. Instead of using <code>epoll_event.data.fd</code> (an integer), I use <code>epoll_event.data.ptr</code> to point at a context struct:</p>
+<pre class="giallo" style="color: #CDD6F4; background-color: #1E1E2E;"><code data-lang="c"><span class="giallo-l"><span style="color: #CBA6F7;">typedef struct</span><span style="color: #9399B2;"> {</span></span>
+<span class="giallo-l"><span style="color: #F9E2AF;font-style: italic;">    epoll_type_t</span><span> type</span><span style="color: #9399B2;">;</span><span style="color: #9399B2;font-style: italic;"> // SERVER or CONN</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">    union</span><span style="color: #9399B2;"> {</span></span>
+<span class="giallo-l"><span style="color: #F9E2AF;font-style: italic;">        server_t</span><span style="color: #94E2D5;"> *</span><span>server</span><span style="color: #9399B2;">;</span></span>
+<span class="giallo-l"><span style="color: #F9E2AF;font-style: italic;">        conn_t</span><span style="color: #94E2D5;">   *</span><span>conn</span><span style="color: #9399B2;">;</span></span>
+<span class="giallo-l"><span style="color: #9399B2;">    };</span></span>
+<span class="giallo-l"><span style="color: #9399B2;">}</span><span style="color: #F9E2AF;font-style: italic;"> epoll_ctx_t</span><span style="color: #9399B2;">;</span></span></code></pre>
+<p>Every server and every connection embeds one of these as its first field. When epoll fires an event, I cast <code>data.ptr</code> back to <code>epoll_ctx_t *</code> and switch on the type:</p>
+<pre class="giallo" style="color: #CDD6F4; background-color: #1E1E2E;"><code data-lang="c"><span class="giallo-l"><span style="color: #F9E2AF;font-style: italic;">epoll_ctx_t</span><span style="color: #94E2D5;"> *</span><span>ctx </span><span style="color: #94E2D5;">=</span><span> events</span><span style="color: #9399B2;">[</span><span>i</span><span style="color: #9399B2;">]</span><span>.data.ptr</span><span style="color: #9399B2;">;</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">switch</span><span style="color: #9399B2;"> (</span><span>ctx</span><span style="color: #9399B2;">-&gt;</span><span>type</span><span style="color: #9399B2;">) {</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">case</span><span> EPOLL_TYPE_SERVER</span><span style="color: #9399B2;">:</span></span>
+<span class="giallo-l"><span style="color: #9399B2;font-style: italic;">    // accept new connection</span></span>
+<span class="giallo-l"><span style="color: #CBA6F7;">case</span><span> EPOLL_TYPE_CONN</span><span style="color: #9399B2;">:</span></span>
+<span class="giallo-l"><span style="color: #9399B2;font-style: italic;">    // read/write data</span></span>
+<span class="giallo-l"><span style="color: #9399B2;">}</span></span></code></pre>
+<p>This is much cleaner than integer comparison and scales naturally. If I add more event source types later, I just add a new <code>epoll_type_t</code> variant.</p>
+<p>The <code>server_t</code> struct itself owns a fixed-size array of <code>conn_t *</code> pointers (64 slots for now), an <code>epoll_event</code> buffer, the listening fd, and the epoll fd. All the socket setup that used to live in <code>main</code> moved into <code>server_start()</code>, and the event loop became <code>server_poll()</code>.</p>
+<p><code>main.c</code> got dramatically simpler, it just parses args, sets up signal handling, creates the server, and loops on <code>server_poll()</code>.</p>
+<h3 id="signal-handling">Signal handling</h3>
+<p>I also added proper signal handling in this pass. <code>SIGINT</code> and <code>SIGTERM</code> both set a <code>volatile sig_atomic_t running = 0</code> flag. The key detail is <code>SA_RESTART</code> is deliberately <strong>not</strong> set:</p>
+<pre class="giallo" style="color: #CDD6F4; background-color: #1E1E2E;"><code data-lang="c"><span class="giallo-l"><span>sa.sa_flags </span><span style="color: #94E2D5;">=</span><span style="color: #FAB387;"> 0</span><span style="color: #9399B2;">;</span><span style="color: #9399B2;font-style: italic;"> // no SA_RESTART, we want epoll_wait to return EINTR</span></span></code></pre>
+<p>Without this, the signal would restart <code>epoll_wait</code> transparently and the loop would never notice. With it, the signal causes <code>epoll_wait</code> to return <code>-1</code> with <code>errno == EINTR</code>, which I treat as a clean shutdown signal.</p>
+<h3 id="logging-upgrades">Logging upgrades</h3>
+<p>The logger also got an upgrade: colors via ANSI escape codes and timestamps:</p>
+<pre class="giallo" style="color: #CDD6F4; background-color: #1E1E2E;"><code data-lang="plain"><span class="giallo-l"><span>[2026-04-16 10:08:11] [INFO] Connection received: 5</span></span>
+<span class="giallo-l"><span>[2026-04-16 10:08:11] [WARN] src/server.c:306: read() call failed: Connection reset by peer</span></span></code></pre>
+<p>Errors and warnings include file/line info; info logs don't clutter the output with it.</p>
+<hr />
+<h2 id="current-state">Current State</h2>
+<p>The server:</p>
+<ul>
+<li>Binds a TCP port</li>
+<li>Handles multiple concurrent connections via <code>epoll</code></li>
+<li>Echoes received data back to the sender</li>
+<li>Cleans up gracefully on <code>SIGINT</code>/<code>SIGTERM</code></li>
+<li>Compiles clean under <code>-Wall -Wextra -Wpedantic -std=c23</code></li>
+</ul>
+<p>The code is organized into modules with clear ownership and a reasonably extensible dispatch model. A solid foundation to build on.</p>
+<p>Next up: crypto. Before <code>chillssh</code> can speak SSH, it needs to speak the cryptographic primitives that SSH is built on. I'll be implementing ChaCha20 from scratch, the stream cipher used in the <code>chacha20-poly1305</code> AEAD construction that modern SSH connections negotiate. More on that in the next post.</p>
+
+        </div>
+
+                </div>
+            <div class="pagination">
+                <div class="pagination__buttons"></div>
+            </div>
+        </div>
+        
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright">
+                        <span>© 
+    2026
+ Powered by <a href="https://www.getzola.org/">Zola</a></span>
+                    <span class="copyright-theme">
+                        <span class="copyright-theme-sep">:: </span>
+                        Theme: <a href="https://github.com/pawroman/zola-theme-terminimal/">Terminimal</a> by pawroman
+                    </span>
+                </div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>
