@@ -1,10 +1,10 @@
 +++
-title = "Building a TCP Server in C — devblog"
+title = "Building a TCP Server in C"
 date = 2026-04-16
 [taxonomies]
 tags = ["c", "networking", "chillssh"]
 +++
-# Building a TCP Server in C — devblog
+# Building a TCP Server in C
 
 ## Why?
 
@@ -72,9 +72,9 @@ while (true) {
     for (int i = 0; i < n; i++) {
         int fd = events[i].data.fd;
         if (fd == server_fd) {
-            // new connection — accept and register with epoll
+            // new connection, accept and register with epoll
         } else {
-            // data from existing client — read and echo back
+            // data from existing client, read and echo back
         }
     }
 }
@@ -82,7 +82,7 @@ while (true) {
 
 The distinguishing trick here is comparing `fd` against the server fd to know whether an event is a new connection or incoming data. It works, but it's a bit fragile. You're relying on fd integer comparison to dispatch logic.
 
-For echoing, handling `bytes == 0` is important — that's the client disconnecting gracefully. And `EAGAIN` on a non-blocking read just means there's no data right now, not an error.
+For echoing, handling `bytes == 0` is important, that's the client disconnecting gracefully. And `EAGAIN` on a non-blocking read just means there's no data right now, not an error.
 
 ---
 
@@ -90,9 +90,9 @@ For echoing, handling `bytes == 0` is important — that's the client disconnect
 
 The second epoll implementation worked, but it was 150+ lines of tangled logic in `main.c`. I wanted to break it into something that could actually grow. So I pulled it apart into:
 
-- `server.c` / `server.h` — owns the listening socket, the epoll instance, and the client list
-- `conn.c` / `conn.h` — represents a single client connection
-- `epoll_ctx.h` — a tagged union that replaces the fragile fd comparison
+- `server.c` / `server.h` : owns the listening socket, the epoll instance, and the client list
+- `conn.c` / `conn.h` : represents a single client connection
+- `epoll_ctx.h` : a tagged union that replaces the fragile fd comparison
 
 The tagged union is the most interesting design decision here. Instead of using `epoll_event.data.fd` (an integer), I use `epoll_event.data.ptr` to point at a context struct:
 
@@ -129,7 +129,7 @@ The `server_t` struct itself owns a fixed-size array of `conn_t *` pointers (64 
 I also added proper signal handling in this pass. `SIGINT` and `SIGTERM` both set a `volatile sig_atomic_t running = 0` flag. The key detail is `SA_RESTART` is deliberately **not** set:
 
 ```c
-sa.sa_flags = 0; // no SA_RESTART — we want epoll_wait to return EINTR
+sa.sa_flags = 0; // no SA_RESTART, we want epoll_wait to return EINTR
 ```
 
 Without this, the signal would restart `epoll_wait` transparently and the loop would never notice. With it, the signal causes `epoll_wait` to return `-1` with `errno == EINTR`, which I treat as a clean shutdown signal.
