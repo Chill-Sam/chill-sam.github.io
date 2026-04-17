@@ -8,7 +8,7 @@ tags = ["c", "networking", "chillssh"]
 
 ## Why?
 
-I wanted to really understand how servers work at the system call level. Not "use a framework", not "call a library" — I mean actually reaching down into the kernel and building something that listens for connections, reads data, and writes it back.
+I wanted to really understand how servers work at the system call level. Not "use a framework", not "call a library", I mean actually reaching down into the kernel and building something that listens for connections, reads data, and writes it back.
 
 The end goal of `chillssh` is a from-scratch SSH server that accepts connections and serves an application, built entirely by hand, no libssh, no OpenSSL. But before any SSH, before any crypto, before any protocol parsing, you need a working TCP server. This is how I got there.
 
@@ -37,7 +37,7 @@ while (true) {
 
 The accept loop blocks the process entirely on each connection. One client at a time, and we close immediately after writing. It's basically useless for anything real, but it was a useful foundation to build on.
 
-I also set up a small logging system from the start — a header-only macro based logger with `LOG_ERROR`, `LOG_WARNING`, and `LOG_INFO` levels. Printing to stderr with `__FILE__` and `__LINE__` context. Nothing fancy but it saved me a lot of printf-debugging.
+I also set up a small logging system from the start, a header-only macro based logger with `LOG_ERROR`, `LOG_WARNING`, and `LOG_INFO` levels. Printing to stderr with `__FILE__` and `__LINE__` context. Nothing fancy but it saved me a lot of printf-debugging.
 
 One thing I want to be deliberate about throughout this project: writing robust, safe, modern C. The Makefile compiles with `-Wall -Wextra -Wpedantic -std=c23`. C23 is the latest standard and the strict warning flags mean the compiler catches a lot of sloppiness before it becomes a bug.
 
@@ -45,7 +45,7 @@ One thing I want to be deliberate about throughout this project: writing robust,
 
 ## Step 2: Multiple Clients with epoll
 
-The blocking accept loop obviously can't handle multiple clients. The naive fix is threads, but I wanted to go the event-driven route with `epoll` — Linux's high-performance I/O event notification interface.
+The blocking accept loop obviously can't handle multiple clients. The naive fix is threads, but I wanted to go the event-driven route with `epoll`, Linux's high-performance I/O event notification interface.
 
 The idea behind epoll is: instead of blocking on a single fd, you register a set of fds with an epoll instance and call `epoll_wait`. The kernel tells you which fds are ready, and you handle them one by one.
 
@@ -122,7 +122,7 @@ This is much cleaner than integer comparison and scales naturally. If I add more
 
 The `server_t` struct itself owns a fixed-size array of `conn_t *` pointers (64 slots for now), an `epoll_event` buffer, the listening fd, and the epoll fd. All the socket setup that used to live in `main` moved into `server_start()`, and the event loop became `server_poll()`.
 
-`main.c` got dramatically simpler — it just parses args, sets up signal handling, creates the server, and loops on `server_poll()`.
+`main.c` got dramatically simpler, it just parses args, sets up signal handling, creates the server, and loops on `server_poll()`.
 
 ### Signal handling
 
@@ -136,7 +136,7 @@ Without this, the signal would restart `epoll_wait` transparently and the loop w
 
 ### Logging upgrades
 
-The logger also got an upgrade — colors via ANSI escape codes and timestamps:
+The logger also got an upgrade: colors via ANSI escape codes and timestamps:
 
 ```
 [2026-04-16 10:08:11] [INFO] Connection received: 5
